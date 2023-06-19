@@ -10,7 +10,7 @@ configpath = 'config_beart.cfg'
 print('GCS')
 day = date.today()
 # define model path
-model = f'Model/newmodelbeart{day}'
+model = f'Models/newmodelbeart{day}'
 # # define train data path
 # configpath = './h1config.cfg'
 # train_path = f'./spacy_data/train{day}.spacy'
