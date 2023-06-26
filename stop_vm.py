@@ -28,7 +28,7 @@ def stop_instance(project_id, zone, machine_name):
     return
 
 
-stop_instance('kayanhr-staging', 'europe-west1-b', 'kayanhr-staging-ai-workload-1')
+
 
 
 # """
