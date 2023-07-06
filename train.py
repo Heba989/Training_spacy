@@ -6,7 +6,7 @@ import spacy_transformers
 import stop_vm
 
 # # define train data path
-configpath = 'config_beart.cfg'
+configpath = 'config_gpt2.cfg'
 print('GCS')
 day = date.today()
 # define model path
