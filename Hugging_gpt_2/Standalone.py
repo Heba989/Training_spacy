@@ -37,6 +37,10 @@ def compute_metrics(p):
         "accuracy": results["overall_accuracy"],
     }
 def tokenize_and_align_labels(examples):
+    if [] in examples['tokens']:
+        examples["id"].pop(examples['tokens'].index([]))
+        examples['ner_tags'].pop(examples['tokens'].index([]))
+        examples['tokens'].pop(examples['tokens'].index([]))
     tokenized_inputs = tokenizer(examples["tokens"], truncation=True, is_split_into_words=True)
 
     labels = []
@@ -55,11 +59,12 @@ def tokenize_and_align_labels(examples):
         labels.append(label_ids)
 
     tokenized_inputs["labels"] = labels
+
     return tokenized_inputs
 
 # Fetch data and convert it to ids using GPT2 tokenizer
 
-data = datasets.load_dataset(path='KayanresumeData/KayanResumeData.py', name='KayanResumeData')
+data = datasets.load_dataset(path='Hugging_gpt_2/KayanresumeData/KayanResumeData.py', name='KayanResumeData')
 
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", add_prefix_space=True)
 #tokenizer = GPT2TokenizerFast.from_pretrained("EleutherAI/gpt-j-6B", add_prefix_space=True)
