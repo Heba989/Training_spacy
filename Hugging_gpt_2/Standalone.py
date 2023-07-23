@@ -10,13 +10,13 @@ import datasets
 import torch
 import os
 
-
+# Referencing :: https://github.com/huggingface/notebooks/blob/main/examples/token_classification.ipynb
 # to handle the error :: For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
 # Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 def compute_metrics(p):
 
-    seqeval = evaluate.load("seqeval")
+    seqeval = datasets.load_metric("seqeval")
     predictions, labels = p
     predictions = np.argmax(predictions, axis=2)
 
@@ -127,7 +127,25 @@ trainer = Trainer(
     train_dataset=tokenized_data["train"],
     eval_dataset=tokenized_data["validation"],
     data_collator=data_collator,         # training dataset
+    compute_metrics=compute_metrics
     # evaluation dataset
 )
 
 trainer.train()
+trainer.evaluate()
+
+predictions, labels, _ = trainer.predict(tokenized_data["validation"])
+predictions = np.argmax(predictions, axis=2)
+
+# Remove ignored index (special tokens)
+true_predictions = [[label_list[p] for (p, l) in zip(prediction, label) if l != -100] for prediction, label in zip(predictions, labels)]
+true_labels = [
+    [label_list[l] for (p, l) in zip(prediction, label) if l != -100]
+    for prediction, label in zip(predictions, labels)
+]
+metric = datasets.load_metric("seqeval")
+results = metric.compute(predictions=true_predictions, references=true_labels)
+print(results)
+import json
+with open('meta_results.json', 'w') as fp:
+    json.dump(results, fp)
