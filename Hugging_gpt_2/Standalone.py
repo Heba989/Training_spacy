@@ -1,8 +1,8 @@
-from transformers import AutoModelForTokenClassification, TrainingArguments, Trainer
+from transformers import TFAutoModelForTokenClassification, TrainingArguments, Trainer, GPT2DoubleHeadsModel
 from transformers import DataCollatorForTokenClassification
 from KayanresumeData import KayanResumeData as KRD
 from transformers import TrainingArguments
-from transformers import GPT2TokenizerFast
+from transformers import GPT2TokenizerFast, TFGPT2Tokenizer
 import pandas as pd
 import numpy as np
 import evaluate
@@ -61,7 +61,9 @@ def tokenize_and_align_labels(examples):
 
 data = datasets.load_dataset(path='KayanresumeData/KayanResumeData.py', name='KayanResumeData')
 
-tokenizer = GPT2TokenizerFast.from_pretrained("EleutherAI/gpt-j-6B", add_prefix_space=True)
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", add_prefix_space=True)
+#tokenizer = GPT2TokenizerFast.from_pretrained("EleutherAI/gpt-j-6B", add_prefix_space=True)
+
 tokenizer.pad_token = tokenizer.eos_token
 # data Preprocessing:
 tokenized_data = data.map(tokenize_and_align_labels, batched=True)
@@ -98,11 +100,10 @@ data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
 
 # Check GPU or CPU
 #torch_device = torch.cuda.current_device()
-model = AutoModelForTokenClassification.from_pretrained("gpt2", num_labels=41,
-                                                        torch_dtype=torch.float16,
+model = GPT2DoubleHeadsModel.from_pretrained("gpt2", num_labels=41,
                                                         id2label=id2label,
                                                         label2id=label2id)
-
+model.resize_token_embeddings(len(tokenizer))
 training_args = TrainingArguments(
     output_dir='./results',          # output directory
     num_train_epochs=3,              # total number of training epochs

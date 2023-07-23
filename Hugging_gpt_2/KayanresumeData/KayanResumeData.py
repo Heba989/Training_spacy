@@ -63,7 +63,7 @@ class Kayan(datasets.GeneratorBasedBuilder):
             features=datasets.Features(
                 {
                     "id": datasets.Value("string"),
-                    "tokens": datasets.Sequance(datasets.Value('string')),
+                    "tokens": datasets.Sequence(datasets.Value('string')),
                     "ner_tags": datasets.Sequence(
                         datasets.features.ClassLabel(
                             names=[
