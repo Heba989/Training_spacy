@@ -67,7 +67,7 @@ def tokenize_and_align_labels(examples):
 
 # Fetch data and convert it to ids using GPT2 tokenizer
 
-data = datasets.load_dataset(path='Hugging_gpt_2/KayanresumeData/KayanResumeData.py', name='KayanResumeData')
+data = datasets.load_dataset(path='KayanresumeData/KayanResumeData.py', name='KayanResumeData')
 
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", add_prefix_space=True)
 #tokenizer = GPT2TokenizerFast.from_pretrained("EleutherAI/gpt-j-6B", add_prefix_space=True)
@@ -75,7 +75,7 @@ tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", add_prefix_space=True)
 tokenizer.pad_token = tokenizer.eos_token
 # data Preprocessing:
 tokenized_data = data.map(tokenize_and_align_labels, batched=True)
-
+print(len(tokenized_data['train']),len(tokenized_data['validation']))
 id2label = {i: label for i, label in enumerate(data['train'].features['ner_tags'].feature.names)}
 label2id = {v: k for k, v in id2label.items()}
 
@@ -122,27 +122,25 @@ training_args = TrainingArguments(
     logging_dir='./logs',            # directory for storing logs
     logging_steps=10,
     load_best_model_at_end=True,
-    save_strategy='steps',       # The checkpoint save strategy to adopt during training.
-    evaluation_strategy="steps", #(:obj:`str` or :class:`~transformers.trainer_utils.IntervalStrategy`, `optional`, defaults to :obj:`"no"`):
+    save_strategy='epoch',       # The checkpoint save strategy to adopt during training.
+    evaluation_strategy="epoch", #(:obj:`str` or :class:`~transformers.trainer_utils.IntervalStrategy`, `optional`, defaults to :obj:`"no"`):
                                      # The evaluation strategy to adopt during training
-
-
 )
 
 
 trainer = Trainer(
     model=model,                         # the instantiated 🤗 Transformers model to be trained
     args=training_args,                  # training arguments, defined above
-    train_dataset=tokenized_data["train"],
-    eval_dataset=tokenized_data["validation"],
+    train_dataset=tokenized_data["train"][:200],
+    eval_dataset=tokenized_data["validation"][:100],
     data_collator=data_collator,         # training dataset
     compute_metrics=compute_metrics
     # evaluation dataset
 )
 # adding early stopper
-early_stop = EarlyStoppingCallback(early_stopping_patience=5, early_stopping_threshold=1e-3)
+# early_stop = EarlyStoppingCallback(early_stopping_patience=5, early_stopping_threshold=1e-3)
 
-trainer.add_callback(early_stop)
+# trainer.add_callback(early_stop)
 
 trainer.train()
 trainer.evaluate()
