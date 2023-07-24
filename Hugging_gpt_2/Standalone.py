@@ -4,6 +4,7 @@ from KayanresumeData import KayanResumeData as KRD
 from transformers import TrainingArguments
 from transformers import GPT2TokenizerFast, TFGPT2Tokenizer
 import pandas as pd
+import transformers
 import numpy as np
 import evaluate
 import datasets
@@ -120,6 +121,12 @@ training_args = TrainingArguments(
     weight_decay=0.01,               # strength of weight decay
     logging_dir='./logs',            # directory for storing logs
     logging_steps=10,
+    load_best_model_at_end=True,
+    save_strategy='steps',       # The checkpoint save strategy to adopt during training.
+    evaluation_strategy="steps", #(:obj:`str` or :class:`~transformers.trainer_utils.IntervalStrategy`, `optional`, defaults to :obj:`"no"`):
+                                     # The evaluation strategy to adopt during training
+
+
 )
 
 
