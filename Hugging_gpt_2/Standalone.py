@@ -1,5 +1,5 @@
 from transformers import TFAutoModelForTokenClassification, TrainingArguments, Trainer, GPT2DoubleHeadsModel
-from transformers import DataCollatorForTokenClassification
+from transformers import DataCollatorForTokenClassification, EarlyStoppingCallback
 from KayanresumeData import KayanResumeData as KRD
 from transformers import TrainingArguments
 from transformers import GPT2TokenizerFast, TFGPT2Tokenizer
@@ -11,6 +11,8 @@ import torch
 import os
 
 # Referencing :: https://github.com/huggingface/notebooks/blob/main/examples/token_classification.ipynb
+# https://huggingface.co/learn/nlp-course/chapter7/2
+# https://colab.research.google.com/drive/1Vvju5kOyBsDr7RX_YAvp6ZsSOoSMjhKD?usp=sharing
 # to handle the error :: For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
 # Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -130,6 +132,10 @@ trainer = Trainer(
     compute_metrics=compute_metrics
     # evaluation dataset
 )
+# adding early stopper
+early_stop = EarlyStoppingCallback(early_stopping_patience=5, early_stopping_threshold=1e-3)
+
+trainer.add_callback(early_stop)
 
 trainer.train()
 trainer.evaluate()
