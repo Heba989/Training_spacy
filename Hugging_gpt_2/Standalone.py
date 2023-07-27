@@ -1,9 +1,8 @@
 from transformers import TFAutoModelForTokenClassification, TrainingArguments, Trainer, GPT2DoubleHeadsModel,AutoModelForTokenClassification
-from transformers import DataCollatorForTokenClassification, EarlyStoppingCallback
+from transformers import DataCollatorForTokenClassification, EarlyStoppingCallback, RobertaForTokenClassification, SqueezeBertTokenizerFast
 from torch.utils.data.dataloader import DataLoader
-from KayanresumeData import KayanResumeData as KRD
-from transformers import TrainingArguments
-from transformers import GPT2TokenizerFast, TFGPT2Tokenizer, BitsAndBytesConfig
+from transformers import TrainingArguments, BertTokenizerFast, RobertaTokenizer, SqueezeBertForTokenClassification
+from transformers import GPT2TokenizerFast, GPT2Tokenizer, BitsAndBytesConfig
 import pandas as pd
 import transformers
 import numpy as np
@@ -24,6 +23,17 @@ def compute_metrics(p):
     seqeval = datasets.load_metric("seqeval")
     predictions, labels = p
     predictions = np.argmax(predictions, axis=2)
+    # label_list = ['O', 'B-Degree', 'I-Degree', 'B-Email', 'I-Email', 'B-GPA',
+    #                 'I-GPA', 'B-GPE', 'I-GPE', 'B-Major', 'I-Major', 'B-Phone',
+    #                 'I-Phone', 'B-Skills', 'I-Skills', 'B-brthdate', 'I-brthdate',
+    #                 'B-contratctype', 'I-contratctype', 'B-courses', 'I-courses',
+    #                 'B-gender', 'I-gender', 'B-hascertificate', 'I-hascertificate',
+    #                 'B-languages', 'I-languages', 'B-location', 'I-location', 'B-name',
+    #                 'I-name', 'B-nationality', 'I-nationality', 'B-position', 'I-position',
+    #                 'B-studiedat', 'I-studiedat', 'B-summary', 'I-summary', 'B-workat', 'I-workat']
+    label_dict ={'O': 0, 'B-PER': 1, 'I-PER': 2, 'B-ORG': 3, 'I-ORG': 4, 'B-LOC': 5, 'I-LOC': 6, 'B-MISC': 7, 'I-MISC': 8}
+
+    label_list = list(label_dict.values())
 
     true_predictions = [
         [label_list[p] for (p, l) in zip(prediction, label) if l != -100]
@@ -50,7 +60,7 @@ def tokenize_and_align_labels(examples):
 
     labels = []
     for i, label in enumerate(examples[f"ner_tags"]):
-        word_ids = tokenized_inputs.word_ids(batch_index=i)  # Map tokens to their respective word.
+        word_ids = tokenized_inputs.word_ids(batch_index=i) # Map tokens to their respective word.
         previous_word_idx = None
         label_ids = []
         for word_idx in word_ids:  # Set the special tokens to -100.
@@ -67,7 +77,6 @@ def tokenize_and_align_labels(examples):
 
     return tokenized_inputs
 
-
 def print_trainable_parameters(model):
     """
     Prints the number of trainable parameters in the model.
@@ -82,20 +91,20 @@ def print_trainable_parameters(model):
         f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
     )
 # Fetch data and convert it to ids using GPT2 tokenizer
-
-data = datasets.load_dataset(path='Hugging_gpt_2/KayanresumeData/KayanResumeData.py', name='KayanResumeData')
+data= datasets.load_dataset('conll2003')
+#data = datasets.load_dataset(path='Hugging_gpt_2/KayanresumeData/KayanResumeData.py', name='KayanResumeData')
 Quan_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_use_double_quant=True,
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.bfloat16
 )
-tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", add_prefix_space=True)
+tokenizer = SqueezeBertTokenizerFast.from_pretrained("squeezebert/squeezebert-uncased", add_prefix_space=True)
 #tokenizer = GPT2TokenizerFast.from_pretrained("EleutherAI/gpt-j-6B", add_prefix_space=True)
 
-tokenizer.pad_token = tokenizer.eos_token
+# tokenizer.pad_token = tokenizer.eos_token
 # data Preprocessing:
-tokenized_data = data.map(tokenize_and_align_labels, batched=True)
+tokenized_data = data.map(tokenize_and_align_labels, batched=True, batch_size=1)
 
 id2label = {i: label for i, label in enumerate(data['train'].features['ner_tags'].feature.names)}
 label2id = {v: k for k, v in id2label.items()}
@@ -129,18 +138,26 @@ data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
 
 # Check GPU or CPU
 torch_device = torch.cuda.current_device()
-model = GPT2DoubleHeadsModel.from_pretrained("gpt2", num_labels=41,
-                                                        id2label=id2label,
-                                                        label2id=label2id,  )
-# model = AutoModelForTokenClassification.from_pretrained("gpt2",
-#                                                         num_labels=11,
+# dslim/bert-base-NER
+# the models that support accelerate are:
+# [
+#     'bigbird_pegasus', 'blip_2', 'bloom', 'bridgetower', 'codegen', 'deit', 'esm',
+#     'gpt2', 'gpt_bigcode', 'gpt_neo', 'gpt_neox', 'gpt_neox_japanese', 'gptj', 'gptsan_japanese',
+#     'lilt', 'llama', 'longformer', 'longt5', 'luke', 'm2m_100', 'mbart', 'mega', 'mt5', 'nllb_moe',
+#     'open_llama', 'opt', 'owlvit', 'plbart', 'roberta', 'roberta_prelayernorm', 'rwkv', 'switch_transformers',
+#     't5', 'vilt', 'vit', 'vit_hybrid', 'whisper', 'xglm', 'xlm_roberta'
+# ]
+# model = GPT2DoubleHeadsModel.from_pretrained("gpt2", num_labels=41,
 #                                                         id2label=id2label,
-#                                                         label2id=label2id
-# )
-model.resize_token_embeddings(len(tokenizer))
+#                                                         label2id=label2id,)
+model = SqueezeBertForTokenClassification.from_pretrained("squeezebert/squeezebert-uncased",
+                                                        num_labels=9,
+                                                        id2label=id2label,
+                                                        label2id=label2id)
+# model.resize_token_embeddings(len(tokenizer))
 
 from peft import prepare_model_for_kbit_training
-model.gradient_checkpointing_enable()
+#model.gradient_checkpointing_enable()
 model = prepare_model_for_kbit_training(model)
 from peft import LoraConfig, get_peft_model, TaskType
 
@@ -151,6 +168,7 @@ config = LoraConfig(
     lora_alpha=16,
     lora_dropout=0.1,
     bias="all",
+    target_modules=["classifier"]
     # r=8,
     # lora_alpha=32,
     # target_modules=["query_key_value"],
@@ -181,31 +199,42 @@ print(print_trainable_parameters(model))
 training_args = TrainingArguments(
                                 per_device_train_batch_size=1,
                                 per_device_eval_batch_size=1,
-                                gradient_accumulation_steps=4,
-                                num_train_epochs=3,
+                                gradient_accumulation_steps=4,  # DistilBertForTokenClassification does not support gradient checkpointing.
+                                num_train_epochs=15,
                                 weight_decay=0.01,
                                 logging_dir='./logs',
                                 warmup_steps=2,
-                                max_steps=10,
-                                learning_rate=2e-4,
+                                max_steps=25,
+                                learning_rate=1e-4,
                                 fp16=True,
                                 logging_steps=1,
                                 output_dir="outputs",
-                                optim="paged_adamw_8bit"
+                                optim="paged_adamw_8bit",
+                                evaluation_strategy="steps",
+                                lr_scheduler_type="linear"
 )
 
 trainer = transformers.Trainer(
     model=model,
-    train_dataset=tokenized_data["train"],
-    eval_dataset=tokenized_data["validation"],
+    train_dataset=tokenized_data['train'],
+    eval_dataset=tokenized_data['validation'],
     args=training_args,
     data_collator=data_collator,
-)
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics,
+   )
 model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
 # trainer = Trainer(
 #     model=model,                         # the instantiated 🤗 Transformers model to be trained
 #     args=training_args,                  # training arguments, defined above
-#     train_dataset=tokenized_data['train'],
+#     train_dataset=tokenized_data['train'],label_list = ['O', 'B-Degree', 'I-Degree', 'B-Email', 'I-Email', 'B-GPA',
+#                     'I-GPA', 'B-GPE', 'I-GPE', 'B-Major', 'I-Major', 'B-Phone',
+#                     'I-Phone', 'B-Skills', 'I-Skills', 'B-brthdate', 'I-brthdate',
+#                     'B-contratctype', 'I-contratctype', 'B-courses', 'I-courses',
+#                     'B-gender', 'I-gender', 'B-hascertificate', 'I-hascertificate',
+#                     'B-languages', 'I-languages', 'B-location', 'I-location', 'B-name',
+#                     'I-name', 'B-nationality', 'I-nationality', 'B-position', 'I-position',
+#                     'B-studiedat', 'I-studiedat', 'B-summary', 'I-summary', 'B-workat', 'I-workat']
 #     eval_dataset=tokenized_data["validation"],
 #     data_collator=data_collator,         # training dataset
 #     compute_metrics=compute_metrics
@@ -217,17 +246,17 @@ model.config.use_cache = False  # silence the warnings. Please re-enable for inf
 # trainer.add_callback(early_stop)
 
 trainer.train()
-trainer.evaluate()
-model_to_save = trainer.model.module if hasattr(trainer.model, 'module') else trainer.model  # Take care of distributed/parallel training
-model_to_save.save_pretrained("liteoutputs")
 
+model_to_save = trainer.model.module if hasattr(trainer.model, 'module') else trainer.model  # Take care of distributed/parallel training
+model_to_save.save_pretrained("bert_15")
+x = trainer.evaluate()
 predictions, labels, _ = trainer.predict(tokenized_data["validation"])
 predictions = np.argmax(predictions, axis=2)
-
+label_list = list(id2label.values())
 # Remove ignored index (special tokens)
-true_predictions = [[label_list[p] for (p, l) in zip(prediction, label) if l != -100] for prediction, label in zip(predictions, labels)]
+true_predictions = [[id2label[p] for (p, l) in zip(prediction, label) if l != -100] for prediction, label in zip(predictions, labels)]
 true_labels = [
-    [label_list[l] for (p, l) in zip(prediction, label) if l != -100]
+    [id2label[l] for (p, l) in zip(prediction, label) if l != -100]
     for prediction, label in zip(predictions, labels)
 ]
 metric = datasets.load_metric("seqeval")
@@ -235,4 +264,4 @@ results = metric.compute(predictions=true_predictions, references=true_labels)
 print(results)
 import json
 with open('meta_results.json', 'w') as fp:
-    json.dump(results, fp)
+    json.dumps(results, fp)
